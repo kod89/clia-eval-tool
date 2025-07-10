@@ -11,66 +11,18 @@ from sklearn.metrics import (
     f1_score
 )
 import matplotlib.pyplot as plt
-import seaborn as sns
+from reportlab.pdfgen import canvas
+from reportlab.lib.pagesizes import A4
+from reportlab.lib.utils import ImageReader
 from datetime import datetime
 import os
 
-from reportlab.lib.pagesizes import A4
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Image, PageBreak
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.lib.units import mm
-from reportlab.lib.enums import TA_LEFT
-from reportlab.pdfbase import pdfmetrics
-from reportlab.pdfbase.ttfonts import TTFont
+st.set_page_config(page_title="CLIA Performance Evaluation Tool", layout="centered")
+st.title("🔬 CLIA Performance Evaluation Tool")
 
-st.set_page_config(page_title="CLIA 분석 성능 평가 툴", layout="centered")
-st.title("🔬 CLIA 분석 성능 평가 자동화 툴")
+uploaded_file = st.file_uploader("📁 Upload Evaluation File (CSV or Excel)", type=["csv", "xlsx"])
 
-uploaded_file = st.file_uploader("📁 평가 결과 파일 업로드 (CSV 또는 Excel)", type=["csv", "xlsx"])
-
-def generate_reportlab_pdf(metrics, cm_path, roc_path, pdf_path):
-    styles = getSampleStyleSheet()
-
-    font_path = "assets/NanumGothic.ttf"
-    if os.path.exists(font_path):
-        pdfmetrics.registerFont(TTFont("NanumGothic", font_path))
-        styles.add(ParagraphStyle(name='Korean', fontName='NanumGothic', fontSize=10, leading=14, alignment=TA_LEFT))
-    else:
-        styles.add(ParagraphStyle(name='Korean', fontName='Helvetica', fontSize=10, leading=14, alignment=TA_LEFT))
-
-    doc = SimpleDocTemplate(pdf_path, pagesize=A4, leftMargin=20*mm, rightMargin=20*mm,
-                            topMargin=20*mm, bottomMargin=20*mm)
-    story = []
-
-    story.append(Paragraph("CLIA 분석 성능 평가 보고서", styles["Title"]))
-    story.append(Paragraph(f"작성일: {datetime.today().strftime('%Y-%m-%d')}", styles["Korean"]))
-    story.append(Spacer(1, 12))
-
-    story.append(Paragraph("<b>[1] 성능 지표 요약 및 해석</b>", styles["Korean"]))
-    story.append(Paragraph(f"- 정확도(Accuracy): {metrics['accuracy']:.2f}", styles["Korean"]))
-    story.append(Paragraph(f"- 정밀도(Precision): {metrics['precision']:.2f}", styles["Korean"]))
-    story.append(Paragraph(f"- 민감도(Recall): {metrics['recall']:.2f}", styles["Korean"]))
-    story.append(Paragraph(f"- F1 Score: {metrics['f1_score']:.2f}", styles["Korean"]))
-
-    story.append(PageBreak())
-    story.append(Paragraph("<b>[2] Confusion Matrix</b>", styles["Korean"]))
-    story.append(Image(cm_path, width=150*mm, height=100*mm))
-    story.append(Spacer(1, 6))
-    story.append(Paragraph("- 호녕 행력은 예측값과 실제 라벨 간 비교입니다. ", styles["Korean"]))
-
-    story.append(PageBreak())
-    story.append(Paragraph("<b>[3] ROC Curve</b>", styles["Korean"]))
-    story.append(Image(roc_path, width=150*mm, height=100*mm))
-    story.append(Spacer(1, 6))
-    story.append(Paragraph(f"- AUC 값: {metrics['roc_auc']:.2f}. 1에 가치른다면 수행력이 우수한 것입니다.", styles["Korean"]))
-
-    story.append(PageBreak())
-    story.append(Paragraph("<b>[4] 최종 평가 요약</b>", styles["Korean"]))
-    story.append(Paragraph(f"- 전체적인 평가 결과는 \"{metrics['overall']}\" 수준으로 판단됩니다.", styles["Korean"]))
-
-    doc.build(story)
-
-if uploaded_file:
+if uploaded_file is not None:
     try:
         if uploaded_file.name.endswith(".csv"):
             df = pd.read_csv(uploaded_file)
@@ -80,64 +32,108 @@ if uploaded_file:
         y_true = df["True_Label"]
         y_pred = df["Test_Result"]
 
-        st.subheader("✅ 성능 지표 요약")
+        st.subheader("✅ Performance Metrics")
         accuracy = accuracy_score(y_true, y_pred)
         precision = precision_score(y_true, y_pred)
         recall = recall_score(y_true, y_pred)
         f1 = f1_score(y_true, y_pred)
-        fpr, tpr, _ = roc_curve(y_true, y_pred)
-        roc_auc = auc(fpr, tpr)
-
-        overall = "우수" if accuracy > 0.9 and roc_auc > 0.9 else "양호" if accuracy > 0.8 else "개선 필요"
-
         metrics = {
-            "accuracy": accuracy,
-            "precision": precision,
-            "recall": recall,
-            "f1_score": f1,
-            "roc_auc": roc_auc,
-            "overall": overall
+            "Accuracy": accuracy,
+            "Precision": precision,
+            "Recall": recall,
+            "F1 Score": f1,
         }
-
-        numeric_metrics_df = pd.DataFrame(
-            [(k, v) for k, v in metrics.items() if isinstance(v, (int, float))],
-            columns=["Metric", "Value"]
-        )
-        st.dataframe(numeric_metrics_df, use_container_width=True)
-
-        st.markdown(f"**📌 최종 평가 요약:** `{metrics['overall']}` 수준")
+        metrics_df = pd.DataFrame(list(metrics.items()), columns=["Metric", "Value"])
+        st.dataframe(metrics_df, use_container_width=True)
 
         st.subheader("📊 Confusion Matrix")
         cm = confusion_matrix(y_true, y_pred)
         fig_cm, ax_cm = plt.subplots()
-        sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', xticklabels=['Negative', 'Positive'],
-                    yticklabels=['Negative', 'Positive'], ax=ax_cm)
+        ax_cm.imshow(cm, interpolation='nearest', cmap=plt.cm.Blues)
         ax_cm.set_title("Confusion Matrix")
-        cm_path = "conf_matrix.png"
+        tick_marks = np.arange(2)
+        ax_cm.set_xticks(tick_marks)
+        ax_cm.set_xticklabels(["Negative", "Positive"])
+        ax_cm.set_yticks(tick_marks)
+        ax_cm.set_yticklabels(["Negative", "Positive"])
+        ax_cm.set_xlabel("Predicted")
+        ax_cm.set_ylabel("Actual")
+        for i in range(2):
+            for j in range(2):
+                ax_cm.text(j, i, format(cm[i, j], 'd'), ha="center", va="center", color="black")
+        fig_cm.tight_layout()
+        cm_path = "confusion_matrix_eng.png"
         fig_cm.savefig(cm_path)
         st.pyplot(fig_cm)
-        plt.close(fig_cm)
 
         st.subheader("📈 ROC Curve")
+        fpr, tpr, _ = roc_curve(y_true, y_pred)
+        roc_auc = auc(fpr, tpr)
         fig_roc, ax_roc = plt.subplots()
-        ax_roc.plot(fpr, tpr, label=f"AUC = {roc_auc:.2f}", color="darkorange")
-        ax_roc.plot([0, 1], [0, 1], linestyle="--", color="gray")
-        ax_roc.set_xlabel("False Positive Rate")
-        ax_roc.set_ylabel("True Positive Rate")
-        ax_roc.set_title("ROC Curve")
-        ax_roc.legend()
-        roc_path = "roc_curve.png"
+        ax_roc.plot(fpr, tpr, color='darkorange', lw=2, label=f'ROC curve (AUC = {roc_auc:.2f})')
+        ax_roc.plot([0, 1], [0, 1], color='navy', lw=2, linestyle='--')
+        ax_roc.set_xlabel('False Positive Rate')
+        ax_roc.set_ylabel('True Positive Rate')
+        ax_roc.set_title('ROC Curve')
+        ax_roc.legend(loc="lower right")
+        roc_path = "roc_curve_eng.png"
         fig_roc.savefig(roc_path)
         st.pyplot(fig_roc)
-        plt.close(fig_roc)
 
-        st.subheader("📄 PDF 보고서 생성")
-        pdf_path = f"CLIA_Evaluation_Report_{datetime.today().strftime('%Y%m%d')}.pdf"
-        if st.button("PDF 보고서 생성"):
-            generate_reportlab_pdf(metrics, cm_path, roc_path, pdf_path)
-            with open(pdf_path, "rb") as f:
-                st.download_button("📅 PDF 다운로드", f, file_name=pdf_path, mime="application/pdf")
-            st.success("✅ PDF 보고서가 생성되었습니다!")
+        st.subheader("📄 Generate PDF Report")
+        pdf_path = f"clia_eval_report_eng_{datetime.today().strftime('%Y%m%d')}.pdf"
+        c = canvas.Canvas(pdf_path, pagesize=A4)
+        width, height = A4
+        c.setFont("Helvetica-Bold", 16)
+        c.drawCentredString(width / 2, height - 30 * 72 / 25.4, "CLIA Performance Evaluation Report")
+
+        c.setFont("Helvetica", 10)
+        c.drawString(20 * 72 / 25.4, height - 40 * 72 / 25.4, f"Date: {datetime.today().strftime('%Y-%m-%d')}")
+
+        y = height - 55 * 72 / 25.4
+        c.setFont("Helvetica-Bold", 11)
+        c.drawString(20 * 72 / 25.4, y, "[1] Summary of Performance Metrics")
+        y -= 15
+        c.setFont("Helvetica", 10)
+        c.drawString(25 * 72 / 25.4, y, f"- Accuracy: {accuracy:.2f}")
+        y -= 12
+        c.drawString(25 * 72 / 25.4, y, f"- Precision: {precision:.2f}")
+        y -= 12
+        c.drawString(25 * 72 / 25.4, y, f"- Recall (Sensitivity): {recall:.2f}")
+        y -= 12
+        c.drawString(25 * 72 / 25.4, y, f"- F1 Score: {f1:.2f}")
+        y -= 20
+
+        c.setFont("Helvetica-Bold", 11)
+        c.drawString(20 * 72 / 25.4, y, "[2] Confusion Matrix")
+        y -= 180
+        c.drawImage(ImageReader(cm_path), 35 * 72 / 25.4, y, width=100 * 72 / 25.4, preserveAspectRatio=True)
+        y -= 70
+        c.setFont("Helvetica", 10)
+        c.drawString(25 * 72 / 25.4, y, "- The matrix shows the number of correct and incorrect predictions.")
+
+        y -= 40
+        c.setFont("Helvetica-Bold", 11)
+        c.drawString(20 * 72 / 25.4, y, "[3] ROC Curve")
+        y -= 180
+        c.drawImage(ImageReader(roc_path), 35 * 72 / 25.4, y, width=100 * 72 / 25.4, preserveAspectRatio=True)
+        y -= 70
+        c.setFont("Helvetica", 10)
+        c.drawString(25 * 72 / 25.4, y, f"- AUC: {roc_auc:.2f} (Closer to 1.0 means better diagnostic performance)")
+
+        y -= 40
+        c.setFont("Helvetica-Bold", 11)
+        c.drawString(20 * 72 / 25.4, y, "[4] Final Evaluation")
+        y -= 15
+        c.setFont("Helvetica", 10)
+        overall = "Excellent" if accuracy > 0.9 and roc_auc > 0.9 else "Good" if accuracy > 0.8 else "Needs Improvement"
+        c.drawString(25 * 72 / 25.4, y, f"- Overall performance is evaluated as \"{overall}\".")
+        c.save()
+
+        with open(pdf_path, "rb") as f:
+            st.download_button("📥 Download PDF Report", f, file_name=pdf_path, mime='application/pdf')
+
+        st.success("✅ Analysis completed successfully!")
 
     except Exception as e:
-        st.error(f"❌ 오류 발생: {e}")
+        st.error(f"Error processing file: {e}")
