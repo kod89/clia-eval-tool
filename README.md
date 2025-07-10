@@ -23,8 +23,8 @@
  
 ## 🛠 사용 방법
 
-```streamlit 웹에서 앱 실행
--> (https://clia-eval-tool-kdh-forsdbiosensor.streamlit.app/)
+```
+streamlit 웹에서 앱 실행 -> (https://clia-eval-tool-kdh-forsdbiosensor.streamlit.app)
 ```
 
 ## 📎 샘플 데이터
