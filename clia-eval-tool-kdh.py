@@ -17,7 +17,7 @@ from datetime import datetime
 import os
 
 st.set_page_config(page_title="CLIA Evaluation Tool", layout="centered")
-st.title("🔬 CLIA Diagnostic Performance Evaluation Tool")
+st.title("🔬 CLIA Evaluation Automation Tool")
 
 uploaded_file = st.file_uploader("📁 Upload evaluation result file (CSV or Excel)", type=["csv", "xlsx"])
 
@@ -77,44 +77,45 @@ if uploaded_file is not None:
         pdf.add_page()
         pdf.set_font("Arial", size=12)
 
-        pdf.cell(200, 10, txt="CLIA Diagnostic Performance Report", ln=True, align='C')
+        pdf.cell(200, 10, txt="CLIA Evaluation Report", ln=True, align='C')
         pdf.cell(200, 10, txt=f"Date: {datetime.today().strftime('%Y-%m-%d')}", ln=True, align='C')
         pdf.ln(10)
 
         pdf.set_font("Arial", size=10)
         pdf.multi_cell(0, 8, txt=f"[1] Summary of Performance Metrics\n"
-                                 f"- Accuracy: {accuracy:.2f}\n"
-                                 f"- Precision: {precision:.2f} → Proportion of true positives among predicted positives\n"
-                                 f"- Recall: {recall:.2f} → Proportion of true positives among actual positives\n"
-                                 f"- F1 Score: {f1:.2f} → Harmonic mean of precision and recall")
+            f"- Accuracy: {accuracy:.2f}\n"
+            f"- Precision: {precision:.2f} -> Proportion of true positives among predicted positives\n"
+            f"- Recall: {recall:.2f} -> Proportion of true positives among actual positives\n"
+            f"- F1 Score: {f1:.2f} -> Harmonic mean of precision and recall")
 
         pdf.ln(5)
         pdf.cell(200, 10, txt="[2] Confusion Matrix", ln=True)
         pdf.image(cm_path, w=160)
         pdf.ln(5)
-        pdf.multi_cell(0, 8, txt="- The confusion matrix compares the predicted results with the actual labels. "
-                                 "High false positive or false negative rates may indicate clinical risk.")
+        pdf.multi_cell(0, 8, txt="- The confusion matrix shows the comparison between predicted and actual labels. "
+                                 "A high rate of false positives or false negatives may indicate clinical risk.")
 
         pdf.ln(5)
         pdf.cell(200, 10, txt="[3] ROC Curve", ln=True)
         pdf.image(roc_path, w=160)
         pdf.multi_cell(0, 8, txt=f"- AUC (Area Under Curve): {roc_auc:.2f}. "
-                                 "An AUC value close to 1 indicates excellent diagnostic performance. "
-                                 "This test maintains high sensitivity while minimizing false positives.")
+                                 "A higher AUC value indicates better diagnostic performance. "
+                                 "This test demonstrates strong sensitivity with low false positive rate.")
 
         pdf.ln(5)
-        pdf.cell(200, 10, txt="[4] Final Evaluation Summary", ln=True)
+        pdf.cell(200, 10, txt="[4] Overall Evaluation Summary", ln=True)
         overall = "Excellent" if accuracy > 0.9 and roc_auc > 0.9 else "Good" if accuracy > 0.8 else "Needs Improvement"
-        pdf.multi_cell(0, 8, txt=f"- The diagnostic device's overall performance is evaluated as \"{overall}\". "
-                                 "It demonstrates strong precision and recall, with a high AUC, indicating reliability in clinical use.")
+        pdf.multi_cell(0, 8, txt=f"- The performance of this diagnostic device is rated as \"{overall}\". "
+                                 "Both precision and recall are high, and the AUC value is favorable. "
+                                 "This suggests reliable performance in real-world use.")
 
-        pdf_path = f"clia_eval_report_eng_{datetime.today().strftime('%Y%m%d')}.pdf"
+        pdf_path = f"clia_eval_report_{datetime.today().strftime('%Y%m%d')}.pdf"
         pdf.output(pdf_path)
 
         with open(pdf_path, "rb") as f:
             st.download_button("📥 Download PDF Report", f, file_name=pdf_path, mime='application/pdf')
 
-        st.success("✅ Analysis complete! Review the results and report.")
+        st.success("✅ Analysis complete! See results and download report.")
 
     except Exception as e:
         st.error(f"An error occurred while processing the file: {e}")
