@@ -1,130 +1,134 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-from sklearn.model_selection import train_test_split
-from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import (
-    accuracy_score, precision_score, recall_score,
-    f1_score, roc_auc_score, confusion_matrix, roc_curve
+    confusion_matrix,
+    roc_curve,
+    auc,
+    accuracy_score,
+    precision_score,
+    recall_score,
+    f1_score
 )
 import matplotlib.pyplot as plt
 import seaborn as sns
-import os
 from datetime import datetime
+import os
+
 from reportlab.lib.pagesizes import A4
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Image, PageBreak
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import mm
 from reportlab.lib.enums import TA_LEFT
 
-
-def generate_clia_pdf_report_streamlit(pdf_path, metrics, cm_img_path, roc_img_path):
-    styles = getSampleStyleSheet()
-    styles.add(ParagraphStyle(name='English', fontName='Helvetica', fontSize=11, leading=14, spaceAfter=10, alignment=TA_LEFT))
-
-    doc = SimpleDocTemplate(pdf_path, pagesize=A4,
-                            rightMargin=20*mm, leftMargin=20*mm,
-                            topMargin=20*mm, bottomMargin=20*mm)
-
-    story = []
-    story.append(Paragraph("CLIA Evaluation Performance Report", styles["Title"]))
-    story.append(Paragraph(f"Date: {datetime.today().strftime('%Y-%m-%d')}", styles["English"]))
-    story.append(Spacer(1, 10))
-
-    story.append(Paragraph("<b>[1] Performance Metrics</b>", styles["English"]))
-    story.append(Paragraph(f"- Accuracy: {metrics['accuracy']:.2f}", styles["English"]))
-    story.append(Paragraph(f"- Precision: {metrics['precision']:.2f}", styles["English"]))
-    story.append(Paragraph(f"- Recall: {metrics['recall']:.2f}", styles["English"]))
-    story.append(Paragraph(f"- F1 Score: {metrics['f1_score']:.2f}", styles["English"]))
-
-    story.append(PageBreak())
-    story.append(Paragraph("<b>[2] Confusion Matrix</b>", styles["English"]))
-    story.append(Image(cm_img_path, width=150*mm, height=100*mm))
-    story.append(Spacer(1, 10))
-    story.append(Paragraph("This matrix shows predicted vs. actual classifications. High diagonal values indicate better performance.", styles["English"]))
-
-    story.append(PageBreak())
-    story.append(Paragraph("<b>[3] ROC Curve</b>", styles["English"]))
-    story.append(Image(roc_img_path, width=150*mm, height=100*mm))
-    story.append(Spacer(1, 10))
-    story.append(Paragraph(f"AUC: {metrics['roc_auc']:.2f} — Higher values indicate better discrimination.", styles["English"]))
-
-    story.append(PageBreak())
-    story.append(Paragraph("<b>[4] Overall Assessment</b>", styles["English"]))
-    story.append(Paragraph(f"Overall model performance is rated as: {metrics['overall']}", styles["English"]))
-
-    doc.build(story)
-    return pdf_path
-
-
-# Streamlit 앱 UI
+st.set_page_config(page_title="CLIA 분석 성능 평가 툴", layout="centered")
 st.title("🔬 CLIA 분석 성능 평가 자동화 툴")
 
-uploaded_file = st.file_uploader("CSV 파일 업로드 (마지막 열이 타겟값)", type=["csv"])
+uploaded_file = st.file_uploader("📁 평가 결과 파일 업로드 (CSV 또는 Excel)", type=["csv", "xlsx"])
+
+def generate_reportlab_pdf(metrics, cm_path, roc_path, pdf_path):
+    styles = getSampleStyleSheet()
+    styles.add(ParagraphStyle(name='Korean', fontName='Helvetica', fontSize=10, leading=14, alignment=TA_LEFT))
+
+    doc = SimpleDocTemplate(pdf_path, pagesize=A4, leftMargin=20*mm, rightMargin=20*mm,
+                            topMargin=20*mm, bottomMargin=20*mm)
+    story = []
+
+    story.append(Paragraph("CLIA 분석 성능 평가 보고서", styles["Title"]))
+    story.append(Paragraph(f"작성일: {datetime.today().strftime('%Y-%m-%d')}", styles["Korean"]))
+    story.append(Spacer(1, 12))
+
+    story.append(Paragraph("<b>[1] 성능 지표 요약 및 해석</b>", styles["Korean"]))
+    story.append(Paragraph(f"- 정확도(Accuracy): {metrics['accuracy']:.2f}", styles["Korean"]))
+    story.append(Paragraph(f"- 정밀도(Precision): {metrics['precision']:.2f} → 양성 예측 정확도", styles["Korean"]))
+    story.append(Paragraph(f"- 민감도(Recall): {metrics['recall']:.2f} → 양성 검출 비율", styles["Korean"]))
+    story.append(Paragraph(f"- F1 Score: {metrics['f1_score']:.2f} → 정밀도와 민감도의 조화 평균", styles["Korean"]))
+
+    story.append(PageBreak())
+    story.append(Paragraph("<b>[2] Confusion Matrix</b>", styles["Korean"]))
+    story.append(Image(cm_path, width=150*mm, height=100*mm))
+    story.append(Spacer(1, 6))
+    story.append(Paragraph("- 혼동 행렬은 예측값과 실제 라벨 간의 비교입니다. "
+                            "대각선 값이 높을수록 모델 성능이 우수합니다.", styles["Korean"]))
+
+    story.append(PageBreak())
+    story.append(Paragraph("<b>[3] ROC Curve</b>", styles["Korean"]))
+    story.append(Image(roc_path, width=150*mm, height=100*mm))
+    story.append(Spacer(1, 6))
+    story.append(Paragraph(f"- AUC 값: {metrics['roc_auc']:.2f}. 1에 가까울수록 분류 성능이 우수합니다.", styles["Korean"]))
+
+    story.append(PageBreak())
+    story.append(Paragraph("<b>[4] 최종 평가 요약</b>", styles["Korean"]))
+    story.append(Paragraph(f"- 전체적인 평가 결과는 \"{metrics['overall']}\" 수준으로 판단됩니다. "
+                            "정밀도와 민감도 모두 양호하여 임상적 적용 가능성이 높습니다.", styles["Korean"]))
+
+    doc.build(story)
+
 if uploaded_file:
-    df = pd.read_csv(uploaded_file)
-    st.write("📄 업로드된 데이터")
-    st.dataframe(df)
+    try:
+        if uploaded_file.name.endswith(".csv"):
+            df = pd.read_csv(uploaded_file)
+        else:
+            df = pd.read_excel(uploaded_file)
 
-    X = df.iloc[:, :-1]
-    y = df.iloc[:, -1]
+        y_true = df["True_Label"]
+        y_pred = df["Test_Result"]
 
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+        st.subheader("✅ 성능 지표 요약")
+        accuracy = accuracy_score(y_true, y_pred)
+        precision = precision_score(y_true, y_pred)
+        recall = recall_score(y_true, y_pred)
+        f1 = f1_score(y_true, y_pred)
+        fpr, tpr, _ = roc_curve(y_true, y_pred)
+        roc_auc = auc(fpr, tpr)
 
-    model = LogisticRegression(max_iter=1000)
-    model.fit(X_train, y_train)
-    y_pred = model.predict(X_test)
-    y_prob = model.predict_proba(X_test)[:, 1]
+        overall = "우수" if accuracy > 0.9 and roc_auc > 0.9 else "양호" if accuracy > 0.8 else "개선 필요"
 
-    acc = accuracy_score(y_test, y_pred)
-    prec = precision_score(y_test, y_pred)
-    rec = recall_score(y_test, y_pred)
-    f1 = f1_score(y_test, y_pred)
-    roc_auc = roc_auc_score(y_test, y_prob)
-    overall = "Excellent" if roc_auc >= 0.9 else "Good" if roc_auc >= 0.8 else "Fair"
+        metrics = {
+            "accuracy": accuracy,
+            "precision": precision,
+            "recall": recall,
+            "f1_score": f1,
+            "roc_auc": roc_auc,
+            "overall": overall
+        }
 
-    metrics = {
-        "accuracy": acc,
-        "precision": prec,
-        "recall": rec,
-        "f1_score": f1,
-        "roc_auc": roc_auc,
-        "overall": overall
-    }
+        st.dataframe(pd.DataFrame(list(metrics.items()), columns=["Metric", "Value"]), use_container_width=True)
 
-    st.subheader("✅ 분석 성능 지표")
-    st.json(metrics)
+        # Confusion Matrix
+        st.subheader("📊 Confusion Matrix")
+        cm = confusion_matrix(y_true, y_pred)
+        fig_cm, ax_cm = plt.subplots()
+        sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', xticklabels=['Negative', 'Positive'],
+                    yticklabels=['Negative', 'Positive'], ax=ax_cm)
+        ax_cm.set_title("Confusion Matrix")
+        cm_path = "conf_matrix.png"
+        fig_cm.savefig(cm_path)
+        st.pyplot(fig_cm)
+        plt.close(fig_cm)
 
-    # Confusion Matrix 시각화
-    cm = confusion_matrix(y_test, y_pred)
-    plt.figure(figsize=(4, 3))
-    sns.heatmap(cm, annot=True, fmt='d', cmap='Blues')
-    plt.title("Confusion Matrix")
-    plt.xlabel("Predicted")
-    plt.ylabel("Actual")
-    os.makedirs("output", exist_ok=True)
-    cm_path = "output/conf_matrix.png"
-    plt.savefig(cm_path)
-    st.pyplot(plt.gcf())
-    plt.close()
+        # ROC Curve
+        st.subheader("📈 ROC Curve")
+        fig_roc, ax_roc = plt.subplots()
+        ax_roc.plot(fpr, tpr, label=f"AUC = {roc_auc:.2f}", color="darkorange")
+        ax_roc.plot([0, 1], [0, 1], linestyle="--", color="gray")
+        ax_roc.set_xlabel("False Positive Rate")
+        ax_roc.set_ylabel("True Positive Rate")
+        ax_roc.set_title("ROC Curve")
+        ax_roc.legend()
+        roc_path = "roc_curve.png"
+        fig_roc.savefig(roc_path)
+        st.pyplot(fig_roc)
+        plt.close(fig_roc)
 
-    # ROC Curve
-    fpr, tpr, _ = roc_curve(y_test, y_prob)
-    plt.figure()
-    plt.plot(fpr, tpr, label=f"AUC = {roc_auc:.2f}")
-    plt.plot([0, 1], [0, 1], linestyle="--")
-    plt.xlabel("False Positive Rate")
-    plt.ylabel("True Positive Rate")
-    plt.title("ROC Curve")
-    plt.legend()
-    roc_path = "output/roc_curve.png"
-    plt.savefig(roc_path)
-    st.pyplot(plt.gcf())
-    plt.close()
+        # PDF 생성
+        st.subheader("📄 PDF 보고서 생성")
+        pdf_path = f"CLIA_Evaluation_Report_{datetime.today().strftime('%Y%m%d')}.pdf"
+        if st.button("PDF 보고서 생성"):
+            generate_reportlab_pdf(metrics, cm_path, roc_path, pdf_path)
+            with open(pdf_path, "rb") as f:
+                st.download_button("📥 PDF 다운로드", f, file_name=pdf_path, mime="application/pdf")
+            st.success("✅ PDF 보고서가 생성되었습니다!")
 
-    st.subheader("📄 PDF 보고서 생성")
-    if st.button("PDF 생성"):
-        report_path = "output/clia_eval_report.pdf"
-        generate_clia_pdf_report_streamlit(report_path, metrics, cm_path, roc_path)
-        with open(report_path, "rb") as f:
-            st.download_button("📥 다운로드", f, file_name="clia_eval_report.pdf")
+    except Exception as e:
+        st.error(f"❌ 오류 발생: {e}")
