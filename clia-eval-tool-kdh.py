@@ -74,19 +74,30 @@ if uploaded_file is not None:
         st.subheader("📄 PDF 보고서 생성")
         pdf = FPDF()
         pdf.add_page()
+
         font_path = "assets/NanumGothic.ttf"
         if os.path.exists(font_path):
-            pdf.add_font("Nanum", "", font_path, uni=True)
-            pdf.set_font("Nanum", size=12)
+            try:
+                pdf.add_font("Nanum", "", font_path, uni=True)
+                pdf.set_font("Nanum", size=12)
+                font_ok = True
+            except:
+                st.error("❌ 폰트 로딩 오류: NanumGothic.ttf")
+                pdf.set_font("Arial", size=12)
+                font_ok = False
         else:
+            st.error("❌ NanumGothic.ttf 폰트가 누락되었습니다.")
             pdf.set_font("Arial", size=12)
+            font_ok = False
 
         pdf.cell(200, 10, txt="CLIA 분석 성능 평가 보고서", ln=True, align='C')
         pdf.cell(200, 10, txt=f"작성일: {datetime.today().strftime('%Y-%m-%d')}", ln=True, align='C')
         pdf.ln(10)
 
-        explanation_font = "Nanum" if os.path.exists(font_path) else "Arial"
-        pdf.set_font(explanation_font, size=10)
+        if font_ok:
+            pdf.set_font("Nanum", size=10)
+        else:
+            pdf.set_font("Arial", size=10)
 
         pdf.multi_cell(0, 8, f"""[1] 성능 지표 해석
 - 정확도(Accuracy): {accuracy:.2f}
