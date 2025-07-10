@@ -40,9 +40,9 @@ def generate_reportlab_pdf(metrics, cm_path, roc_path, pdf_path):
 
     story.append(Paragraph("<b>[1] 성능 지표 요약 및 해석</b>", styles["Korean"]))
     story.append(Paragraph(f"- 정확도(Accuracy): {metrics['accuracy']:.2f}", styles["Korean"]))
-    story.append(Paragraph(f"- 정밀도(Precision): {metrics['precision']:.2f} → 양성 예측 정확도", styles["Korean"]))
-    story.append(Paragraph(f"- 민감도(Recall): {metrics['recall']:.2f} → 양성 검출 비율", styles["Korean"]))
-    story.append(Paragraph(f"- F1 Score: {metrics['f1_score']:.2f} → 정밀도와 민감도의 조화 평균", styles["Korean"]))
+    story.append(Paragraph(f"- 정밀도(Precision): {metrics['precision']:.2f}", styles["Korean"]))
+    story.append(Paragraph(f"- 민감도(Recall): {metrics['recall']:.2f}", styles["Korean"]))
+    story.append(Paragraph(f"- F1 Score: {metrics['f1_score']:.2f}", styles["Korean"]))
 
     story.append(PageBreak())
     story.append(Paragraph("<b>[2] Confusion Matrix</b>", styles["Korean"]))
@@ -59,8 +59,7 @@ def generate_reportlab_pdf(metrics, cm_path, roc_path, pdf_path):
 
     story.append(PageBreak())
     story.append(Paragraph("<b>[4] 최종 평가 요약</b>", styles["Korean"]))
-    story.append(Paragraph(f"- 전체적인 평가 결과는 \"{metrics['overall']}\" 수준으로 판단됩니다. "
-                            "정밀도와 민감도 모두 양호하여 임상적 적용 가능성이 높습니다.", styles["Korean"]))
+    story.append(Paragraph(f"- 전체적인 평가 결과는 \"{metrics['overall']}\" 수준으로 판단됩니다.", styles["Korean"]))
 
     doc.build(story)
 
@@ -93,7 +92,15 @@ if uploaded_file:
             "overall": overall
         }
 
-        st.dataframe(pd.DataFrame(list(metrics.items()), columns=["Metric", "Value"]), use_container_width=True)
+        # 숫자 지표만 DataFrame으로 표시
+        numeric_metrics_df = pd.DataFrame(
+            [(k, v) for k, v in metrics.items() if isinstance(v, (int, float))],
+            columns=["Metric", "Value"]
+        )
+        st.dataframe(numeric_metrics_df, use_container_width=True)
+
+        # overall은 따로 출력
+        st.markdown(f"**📌 최종 평가 요약:** `{metrics['overall']}` 수준")
 
         # Confusion Matrix
         st.subheader("📊 Confusion Matrix")
