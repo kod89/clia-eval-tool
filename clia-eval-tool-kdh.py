@@ -71,16 +71,7 @@ if uploaded_file is not None:
         fig_roc.savefig(roc_path)
         st.pyplot(fig_roc)
 
-        def get_performance_level(acc, auc_score):
-            if acc > 0.9 and auc_score > 0.9:
-                return "Excellent", "The diagnostic performance is excellent. The test is suitable for real-world clinical applications.", "You may proceed with deployment. Further improvements are optional."
-            elif acc > 0.8 and auc_score > 0.8:
-                return "Good", "The test shows good performance. However, further evaluation may enhance reliability.", "Consider improving sensitivity and precision before full deployment."
-            else:
-                return "Needs Improvement", "The current test performance is insufficient for clinical use.", "Model improvement, retraining, and more data collection are strongly recommended."
-
-        level, comment, recommendation = get_performance_level(accuracy, roc_auc)
-
+        # PDF Report
         st.subheader("📄 PDF 보고서 생성")
         pdf = FPDF()
         pdf.add_page()
@@ -91,37 +82,52 @@ if uploaded_file is not None:
         pdf.ln(10)
 
         pdf.set_font("Arial", size=10)
-        pdf.multi_cell(0, 8, txt=f"[1] Performance Metrics\n"
-                                 f"- Accuracy: {accuracy:.2f}\n"
-                                 f"- Precision: {precision:.2f}\n"
-                                 f"- Recall: {recall:.2f}\n"
-                                 f"- F1 Score: {f1:.2f}")
+        pdf.multi_cell(0, 8, txt=f"[1] Performance Metrics and Interpretation\n"
+                                 f"- Accuracy: {accuracy:.2f} — Proportion of correct predictions.\n"
+                                 f"- Precision: {precision:.2f} — Among predicted positives, how many are truly positive.\n"
+                                 f"- Recall (Sensitivity): {recall:.2f} — Among actual positives, how many were correctly identified.\n"
+                                 f"- F1 Score: {f1:.2f} — Harmonic mean of precision and recall.")
 
         pdf.ln(5)
         pdf.cell(200, 10, txt="[2] Confusion Matrix", ln=True)
         pdf.image(cm_path, w=160)
-        pdf.multi_cell(0, 8, txt="- This matrix visualizes prediction vs. actual outcomes. A high false positive or false negative rate may indicate clinical risk.")
+        pdf.ln(5)
+        pdf.multi_cell(0, 8, txt="The confusion matrix compares predicted and actual results. High false positives/negatives may indicate clinical risk.")
 
         pdf.ln(5)
         pdf.cell(200, 10, txt="[3] ROC Curve", ln=True)
         pdf.image(roc_path, w=160)
-        pdf.multi_cell(0, 8, txt=f"- Area Under Curve (AUC): {roc_auc:.2f}. Higher values indicate better diagnostic ability.")
+        pdf.multi_cell(0, 8, txt=f"Area Under Curve (AUC): {roc_auc:.2f}. A higher AUC indicates better diagnostic ability. This test maintains low false positive rate with good sensitivity.")
 
         pdf.ln(5)
         pdf.cell(200, 10, txt="[4] Final Evaluation Summary", ln=True)
-        pdf.multi_cell(0, 8, txt=f"- Overall performance level: {level}\n- {comment}")
 
-        pdf.ln(5)
-        pdf.cell(200, 10, txt="[5] Recommendation", ln=True)
-        pdf.multi_cell(0, 8, txt=f"- {recommendation}")
+        # 평가 레벨 판별
+        if accuracy > 0.9 and roc_auc > 0.9:
+            overall = "Excellent"
+            advice = "The test kit shows excellent diagnostic performance with high reliability in clinical settings."
+        elif accuracy > 0.8:
+            overall = "Good"
+            advice = "Performance is acceptable but may benefit from further optimization for critical applications."
+        else:
+            overall = "Needs Improvement"
+            advice = "The test shows suboptimal results. Investigate possible causes such as sample quality, cutoff settings, or model calibration."
+
+        pdf.multi_cell(0, 8, txt=(f"Metric-based evaluation:\n"
+                                 f"- Accuracy level: {'High' if accuracy > 0.9 else 'Moderate' if accuracy > 0.8 else 'Low'}\n"
+                                 f"- Precision level: {'High' if precision > 0.9 else 'Moderate' if precision > 0.8 else 'Low'}\n"
+                                 f"- Recall level: {'High' if recall > 0.9 else 'Moderate' if recall > 0.8 else 'Low'}\n"
+                                 f"- F1 Score level: {'High' if f1 > 0.9 else 'Moderate' if f1 > 0.8 else 'Low'}\n\n"
+                                 f"Overall performance level: {overall}\n"
+                                 f"Recommendation: {advice}"))
 
         pdf_path = f"clia_eval_report_{datetime.today().strftime('%Y%m%d')}.pdf"
         pdf.output(pdf_path)
 
         with open(pdf_path, "rb") as f:
-            st.download_button("📥 Download PDF Report", f, file_name=pdf_path, mime='application/pdf')
+            st.download_button("📥 PDF 보고서 다운로드", f, file_name=pdf_path, mime='application/pdf')
 
-        st.success("✅ Analysis complete! Review the results and generated report.")
+        st.success("✅ 분석 완료! 결과 및 보고서를 확인하세요.")
 
     except Exception as e:
-        st.error(f"An error occurred while processing the file: {e}")
+        st.error(f"파일 처리 중 오류 발생: {e}")
