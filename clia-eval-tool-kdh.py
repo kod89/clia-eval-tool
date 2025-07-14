@@ -70,7 +70,13 @@ if uploaded_file is not None:
         roc_path = "roc_curve.png"
         fig_roc.savefig(roc_path)
         st.pyplot(fig_roc)
+# 치환 함수
+def sanitize_text(text):
+    return text.replace("—", "-").replace("–", "-")
 
+# 적용
+evaluation_summary = sanitize_text(generate_evaluation_summary(accuracy, precision, recall, f1, roc_auc))
+pdf.multi_cell(0, 8, txt=evaluation_summary)
         # PDF Report
         st.subheader("PDF 보고서 생성")
         pdf = FPDF()
