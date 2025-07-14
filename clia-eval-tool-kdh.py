@@ -71,7 +71,16 @@ if uploaded_file is not None:
         fig_roc.savefig(roc_path)
         st.pyplot(fig_roc)
 
-        # PDF Report with interpretation
+        def get_performance_level(acc, auc_score):
+            if acc > 0.9 and auc_score > 0.9:
+                return "Excellent", "The diagnostic performance is excellent. The test is suitable for real-world clinical applications.", "You may proceed with deployment. Further improvements are optional."
+            elif acc > 0.8 and auc_score > 0.8:
+                return "Good", "The test shows good performance. However, further evaluation may enhance reliability.", "Consider improving sensitivity and precision before full deployment."
+            else:
+                return "Needs Improvement", "The current test performance is insufficient for clinical use.", "Model improvement, retraining, and more data collection are strongly recommended."
+
+        level, comment, recommendation = get_performance_level(accuracy, roc_auc)
+
         st.subheader("📄 PDF 보고서 생성")
         pdf = FPDF()
         pdf.add_page()
@@ -82,7 +91,7 @@ if uploaded_file is not None:
         pdf.ln(10)
 
         pdf.set_font("Arial", size=10)
-        pdf.multi_cell(0, 8, txt=f"[1] Summary of Performance Metrics\n"
+        pdf.multi_cell(0, 8, txt=f"[1] Performance Metrics\n"
                                  f"- Accuracy: {accuracy:.2f}\n"
                                  f"- Precision: {precision:.2f}\n"
                                  f"- Recall: {recall:.2f}\n"
@@ -91,63 +100,20 @@ if uploaded_file is not None:
         pdf.ln(5)
         pdf.cell(200, 10, txt="[2] Confusion Matrix", ln=True)
         pdf.image(cm_path, w=160)
-        pdf.ln(5)
-        pdf.multi_cell(0, 8, txt="- The confusion matrix compares predicted vs. actual labels.\n"
-                                 "High false positives or negatives may indicate clinical risk.")
+        pdf.multi_cell(0, 8, txt="- This matrix visualizes prediction vs. actual outcomes. A high false positive or false negative rate may indicate clinical risk.")
 
         pdf.ln(5)
         pdf.cell(200, 10, txt="[3] ROC Curve", ln=True)
         pdf.image(roc_path, w=160)
-        pdf.multi_cell(0, 8, txt=f"- AUC (Area Under Curve): {roc_auc:.2f}.\n"
-                                 "The closer to 1.0, the better the diagnostic performance.\n"
-                                 "This test demonstrates a good trade-off between sensitivity and specificity.")
+        pdf.multi_cell(0, 8, txt=f"- Area Under Curve (AUC): {roc_auc:.2f}. Higher values indicate better diagnostic ability.")
 
         pdf.ln(5)
         pdf.cell(200, 10, txt="[4] Final Evaluation Summary", ln=True)
+        pdf.multi_cell(0, 8, txt=f"- Overall performance level: {level}\n- {comment}")
 
-        def generate_evaluation_summary(acc, prec, rec, f1s, auc_score):
-            summary = f"- Accuracy: {acc:.2f}, Precision: {prec:.2f}, Recall: {rec:.2f}, F1 Score: {f1s:.2f}, AUC: {auc_score:.2f}\n\n"
-
-            if acc >= 0.9:
-                summary += "- Excellent overall prediction accuracy.\n"
-            elif acc >= 0.8:
-                summary += "- Good accuracy, though improvement is possible.\n"
-            else:
-                summary += "- Low accuracy suggests inconsistent overall predictions.\n"
-
-            if prec >= 0.9:
-                summary += "- High precision: very few false positives.\n"
-            elif prec >= 0.75:
-                summary += "- Moderate precision: some false positives, caution required.\n"
-            else:
-                summary += "- Low precision: many false positives, may lead to unnecessary testing.\n"
-
-            if rec >= 0.9:
-                summary += "- High recall: most true positives detected.\n"
-            elif rec >= 0.75:
-                summary += "- Moderate recall: some true positives may be missed.\n"
-            else:
-                summary += "- Low recall: high risk of missing true cases.\n"
-
-            if f1s >= 0.9:
-                summary += "- F1 score indicates excellent balance of precision and recall.\n"
-            elif f1s >= 0.75:
-                summary += "- F1 score shows moderate balance, possible trade-offs.\n"
-            else:
-                summary += "- Low F1 score: model struggles to balance precision and recall.\n"
-
-            if auc_score >= 0.9:
-                summary += "- AUC indicates strong ability to distinguish between classes.\n"
-            elif auc_score >= 0.75:
-                summary += "- Moderate AUC: fair discrimination, could be improved.\n"
-            else:
-                summary += "- Low AUC: weak class separation, diagnostic confidence may be limited.\n"
-
-            summary += "\nRecommendation: Consider enhancing training data, model tuning, or using advanced classifiers to improve diagnostic performance."
-            return summary
-
-        evaluation_summary = generate_evaluation_summary(accuracy, precision, recall, f1, roc_auc)
-        pdf.multi_cell(0, 8, txt=evaluation_summary)
+        pdf.ln(5)
+        pdf.cell(200, 10, txt="[5] Recommendation", ln=True)
+        pdf.multi_cell(0, 8, txt=f"- {recommendation}")
 
         pdf_path = f"clia_eval_report_{datetime.today().strftime('%Y%m%d')}.pdf"
         pdf.output(pdf_path)
@@ -155,7 +121,7 @@ if uploaded_file is not None:
         with open(pdf_path, "rb") as f:
             st.download_button("📥 Download PDF Report", f, file_name=pdf_path, mime='application/pdf')
 
-        st.success("✅ Analysis complete! Check the results and download the report.")
+        st.success("✅ Analysis complete! Review the results and generated report.")
 
     except Exception as e:
         st.error(f"An error occurred while processing the file: {e}")
