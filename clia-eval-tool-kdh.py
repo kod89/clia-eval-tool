@@ -17,9 +17,9 @@ from datetime import datetime
 import os
 
 st.set_page_config(page_title="CLIA 분석 성능 평가 툴", layout="centered")
-st.title("CLIA 분석 성능 평가 자동화 툴")
+st.title("🔬 CLIA 분석 성능 평가 자동화 툴")
 
-uploaded_file = st.file_uploader("평가 결과 파일 업로드 (CSV 또는 Excel)", type=["csv", "xlsx"])
+uploaded_file = st.file_uploader("📁 평가 결과 파일 업로드 (CSV 또는 Excel)", type=["csv", "xlsx"])
 
 if uploaded_file is not None:
     try:
@@ -31,7 +31,7 @@ if uploaded_file is not None:
         y_true = df["True_Label"]
         y_pred = df["Test_Result"]
 
-        st.subheader("성능 지표 요약")
+        st.subheader("✅ 성능 지표 요약")
         accuracy = accuracy_score(y_true, y_pred)
         precision = precision_score(y_true, y_pred)
         recall = recall_score(y_true, y_pred)
@@ -45,7 +45,7 @@ if uploaded_file is not None:
         metrics_df = pd.DataFrame(list(metrics.items()), columns=["Metric", "Value"])
         st.dataframe(metrics_df, use_container_width=True)
 
-        st.subheader("Confusion Matrix")
+        st.subheader("📊 Confusion Matrix")
         cm = confusion_matrix(y_true, y_pred)
         fig_cm, ax_cm = plt.subplots()
         sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', xticklabels=['Negative', 'Positive'],
@@ -57,7 +57,7 @@ if uploaded_file is not None:
         fig_cm.savefig(cm_path)
         st.pyplot(fig_cm)
 
-        st.subheader("ROC Curve")
+        st.subheader("📈 ROC Curve")
         fpr, tpr, _ = roc_curve(y_true, y_pred)
         roc_auc = auc(fpr, tpr)
         fig_roc, ax_roc = plt.subplots()
@@ -70,15 +70,9 @@ if uploaded_file is not None:
         roc_path = "roc_curve.png"
         fig_roc.savefig(roc_path)
         st.pyplot(fig_roc)
-# 치환 함수
-def sanitize_text(text):
-    return text.replace("—", "-").replace("–", "-")
 
-# 적용
-evaluation_summary = sanitize_text(generate_evaluation_summary(accuracy, precision, recall, f1, roc_auc))
-pdf.multi_cell(0, 8, txt=evaluation_summary)
         # PDF Report
-        st.subheader("PDF 보고서 생성")
+        st.subheader("📄 PDF 보고서 생성")
         pdf = FPDF()
         pdf.add_page()
         pdf.set_font("Arial", size=12)
@@ -111,6 +105,11 @@ pdf.multi_cell(0, 8, txt=evaluation_summary)
         pdf.ln(5)
         pdf.cell(200, 10, txt="[4] Final Evaluation Summary", ln=True)
 
+        # 유니코드 회피용 텍스트 필터
+        def sanitize_text(text):
+            return text.replace("—", "-").replace("–", "-").replace("•", "-")
+
+        # 평가 생성 함수
         def generate_evaluation_summary(acc, prec, rec, f1s, auc_score):
             summary = f"- Accuracy: {acc:.2f}, Precision: {prec:.2f}, Recall: {rec:.2f}, F1 Score: {f1s:.2f}, AUC: {auc_score:.2f}\n\n"
 
@@ -149,29 +148,19 @@ pdf.multi_cell(0, 8, txt=evaluation_summary)
             else:
                 summary += "- Low AUC: weak class separation, diagnostic confidence may be limited.\n"
 
-            summary += "\nFinal Comment: "
-            if acc >= 0.9 and prec >= 0.9 and rec >= 0.9 and auc_score >= 0.9:
-                summary += "All metrics indicate top-level performance.\n"
-                summary += "Recommendation: Excellent model. Consider deploying clinically after broader validation."
-            elif acc >= 0.8 and prec >= 0.8 and rec >= 0.8 and auc_score >= 0.8:
-                summary += "Model shows generally good performance.\n"
-                summary += "Recommendation: Optimize thresholding or balance class representation for improvement."
-            else:
-                summary += "Some metrics are below acceptable standards.\n"
-                summary += "Recommendation: Investigate issues such as data quality, imbalance, or threshold misalignment."
-
+            summary += "\nRecommendation: Consider improving data quality, adjusting decision thresholds, or retraining with more representative samples."
             return summary
 
-        evaluation_summary = generate_evaluation_summary(accuracy, precision, recall, f1, roc_auc)
+        evaluation_summary = sanitize_text(generate_evaluation_summary(accuracy, precision, recall, f1, roc_auc))
         pdf.multi_cell(0, 8, txt=evaluation_summary)
 
         pdf_path = f"clia_eval_report_{datetime.today().strftime('%Y%m%d')}.pdf"
         pdf.output(pdf_path)
 
         with open(pdf_path, "rb") as f:
-            st.download_button("Download PDF Report", f, file_name=pdf_path, mime='application/pdf')
+            st.download_button("📥 Download PDF Report", f, file_name=pdf_path, mime='application/pdf')
 
-        st.success("분석 완료! 결과 및 보고서를 확인하세요.")
+        st.success("✅ Analysis complete! Check the results and download the report.")
 
     except Exception as e:
         st.error(f"An error occurred while processing the file: {e}")
